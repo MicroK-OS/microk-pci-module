@@ -1,7 +1,7 @@
 include ../../Makefile.inc
 
 MODDIR = .
-MODNAME = vendorid-productid-modname
+MODNAME = cafebabe-b830c0de-pci-module
 
 COMMON_CFLAGS = -ffreestanding             \
 	 -fno-stack-protector          \
