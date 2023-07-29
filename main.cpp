@@ -15,24 +15,7 @@
 extern "C" uint32_t VendorID = 0xCAFEBABE;
 extern "C" uint32_t ProductID = 0xB830C0DE;
 
-void MessageHandler() {
-	MKMI_Message *msg = 0x700000000000;
-	uint64_t *data = (uint64_t*)((uintptr_t)msg + 128);
-
-	MKMI_Printf("Message at        0x%x\r\n"
-		    " Sender Vendor ID:  %x\r\n"
-		    " Sender Product ID: %x\r\n"
-		    " Message Size:      %d\r\n"
-		    " Data:            0x%x\r\n",
-		    msg,
-		    msg->SenderVendorID,
-		    msg->SenderProductID,
-		    msg->MessageSize,
-		    *data);
-
-	/* Here we check whether it exists 
-	 * If it isn't there, just skip this step
-	 */
+void MessageHandler(MKMI_Message *msg, uint64_t *data) {
 	if (*data) {
 		MKMI_Printf("MCFG at 0x%x\r\n", *data);
 
@@ -43,13 +26,11 @@ void MessageHandler() {
 	} else {
 		MKMI_Printf("No MCFG found.\r\n");
 	}
-	
-	VMFree(data, msg->MessageSize);
-	_return(0);
 }
 
 extern "C" size_t OnInit() {
-	Syscall(SYSCALL_MODULE_MESSAGE_HANDLER, MessageHandler, 0, 0, 0, 0, 0);
+	SetMessageHandlerCallback(MessageHandler);
+	Syscall(SYSCALL_MODULE_MESSAGE_HANDLER, MKMI_MessageHandler, 0, 0, 0, 0, 0);
 
 	uint32_t pid = 0, vid = 0;
 /*	Syscall(SYSCALL_MODULE_SECTION_GET, "VFS", &vid, &pid, 0, 0 ,0);
