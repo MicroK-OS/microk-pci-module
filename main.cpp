@@ -11,11 +11,13 @@
 #include <mkmi_syscall.h>
 
 #include "pci/pci.h"
+#include "../microk-user-module/vfs/fops.h"
 
 extern "C" uint32_t VendorID = 0xCAFEBABE;
 extern "C" uint32_t ProductID = 0xB830C0DE;
 
-void MessageHandler(MKMI_Message *msg, uint64_t *data) {
+
+int MessageHandler(MKMI_Message *msg, uint64_t *data) {
 	if (*data) {
 		MKMI_Printf("MCFG at 0x%x\r\n", *data);
 
@@ -23,9 +25,31 @@ void MessageHandler(MKMI_Message *msg, uint64_t *data) {
 		Syscall(SYSCALL_MODULE_SECTION_REGISTER, "PCI", VendorID, ProductID, 0, 0 ,0);
 
 		EnumeratePCI(*data);
+
+		uint32_t pid = 0, vid = 0;
+		Syscall(SYSCALL_MODULE_SECTION_GET, "VFS", &vid, &pid, 0, 0 ,0);
+		MKMI_Printf("VFS -> VID: %x PID: %x\r\n", vid, pid);
+
+		size_t size = sizeof(FileCreateRequest) + 128;
+		MKMI_Printf("Size: %d\r\n", size);
+		uint8_t newData[size];
+		FileCreateRequest *request = (FileCreateRequest*)&newData[128];
+
+		request->MagicNumber = FILE_OPERATION_REQUEST_MAGIC_NUMBER;
+		request->Request = FOPS_CREATE;
+		Strcpy(request->Path, "/dev");
+		Strcpy(request->Name, "pci");
+		request->Properties = NODE_PROPERTY_DIRECTORY;
+
+		SendDirectMessage(vid, pid, (uint8_t*)&newData, size);
+		return 0;
 	} else {
 		MKMI_Printf("No MCFG found.\r\n");
+
+		return 1;
 	}
+
+	return 1;
 }
 
 extern "C" size_t OnInit() {
@@ -33,24 +57,6 @@ extern "C" size_t OnInit() {
 	Syscall(SYSCALL_MODULE_MESSAGE_HANDLER, MKMI_MessageHandler, 0, 0, 0, 0, 0);
 
 	uint32_t pid = 0, vid = 0;
-/*	Syscall(SYSCALL_MODULE_SECTION_GET, "VFS", &vid, &pid, 0, 0 ,0);
-	MKMI_Printf("VFS -> VID: %x PID: %x\r\n", vid, pid);
-
-	uintptr_t bufAddr = 0xD000000000;
-	size_t bufSize = 4096 * 2;
-	uint32_t bufID;
-	Syscall(SYSCALL_MODULE_BUFFER_CREATE, bufSize, 0x02, &bufID, 0, 0, 0);
-	Syscall(SYSCALL_MODULE_BUFFER_MAP, bufAddr, bufID, 0, 0, 0, 0);
-	*(uint32_t*)bufAddr = 69;
-
-	uint8_t msg[256];
-	uint32_t *data = (uint32_t*)((uintptr_t)msg + 128);
-	*data = bufID;
-
-	Syscall(SYSCALL_MODULE_MESSAGE_SEND, vid, pid, msg, 256, 0 ,0);
-
-	Free(msg);
-*/
 	Syscall(SYSCALL_MODULE_SECTION_GET, "ACPI", &vid, &pid, 0, 0 ,0);
 	MKMI_Printf("ACPI -> VID: %x PID: %x\r\n", vid, pid);
 
@@ -58,7 +64,7 @@ extern "C" size_t OnInit() {
 	uint64_t *data = (uint64_t*)((uintptr_t)msg + 128);
 	*data = 0x69696969;
 
-	Syscall(SYSCALL_MODULE_MESSAGE_SEND, vid, pid, msg, 256, 0 ,0);
+	SendDirectMessage(vid, pid, msg, 256);
 
 	Free(msg);
 
