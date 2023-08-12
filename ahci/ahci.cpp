@@ -246,8 +246,6 @@ AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
 
 		MBR *mbrPartitionTable = (MBR*)port->Buffer;
 
-		MKMI_Printf("Sizeof : %d -> %d\r\n", sizeof(MBRPartition), sizeof(MBR));
-
 		if(mbrPartitionTable->Signature[0] != 0x55 || mbrPartitionTable->Signature[1] != 0xAA) {
 			MKMI_Printf("Invalid partition table.\r\n");
 		}
