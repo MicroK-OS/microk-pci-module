@@ -11,7 +11,6 @@
 #include <mkmi_syscall.h>
 
 #include "pci/pci.h"
-#include "../microk-user-module/vfs/fops.h"
 
 extern "C" uint32_t VendorID = 0xCAFEBABE;
 extern "C" uint32_t ProductID = 0xB830C0DE;
@@ -22,26 +21,10 @@ int MessageHandler(MKMI_Message *msg, uint64_t *data) {
 		MKMI_Printf("MCFG at 0x%x\r\n", *data);
 
 		Syscall(SYSCALL_MODULE_SECTION_REGISTER, "PCI", VendorID, ProductID, 0, 0 ,0);
-		Syscall(SYSCALL_MODULE_SECTION_REGISTER, "PCI", VendorID, ProductID, 0, 0 ,0);
+		Syscall(SYSCALL_MODULE_SECTION_REGISTER, "PCIe", VendorID, ProductID, 0, 0 ,0);
 
 		EnumeratePCI(*data);
 
-		uint32_t pid = 0, vid = 0;
-		Syscall(SYSCALL_MODULE_SECTION_GET, "VFS", &vid, &pid, 0, 0 ,0);
-		MKMI_Printf("VFS -> VID: %x PID: %x\r\n", vid, pid);
-
-		size_t size = sizeof(FileCreateRequest) + 128;
-		MKMI_Printf("Size: %d\r\n", size);
-		uint8_t newData[size];
-		FileCreateRequest *request = (FileCreateRequest*)&newData[128];
-
-		request->MagicNumber = FILE_OPERATION_REQUEST_MAGIC_NUMBER;
-		request->Request = FOPS_CREATE;
-		Strcpy(request->Path, "/dev");
-		Strcpy(request->Name, "pci");
-		request->Properties = NODE_PROPERTY_DIRECTORY;
-
-		SendDirectMessage(vid, pid, (uint8_t*)&newData, size);
 		return 0;
 	} else {
 		MKMI_Printf("No MCFG found.\r\n");

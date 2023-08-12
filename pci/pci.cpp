@@ -8,29 +8,29 @@
 
 const char* DeviceClasses[] {
 	"Unclassified",
-		"Mass Storage Controller",
-		"Network Controller",
-		"Display Controller",
-		"Multimedia Controller",
-		"Memory Controller",
-		"Bridge Device",
-		"Simple Communication Controller",
-		"Base System Peripheral",
-		"Input Device Controller",
-		"Docking Station", 
-		"Processor",
-		"Serial Bus Controller",
-		"Wireless Controller",
-		"Intelligent Controller",
-		"Satellite Communication Controller",
-		"Encryption Controller",
-		"Signal Processing Controller",
-		"Processing Accelerator",
-		"Non Essential Instrumentation"
+	"Mass Storage Controller",
+	"Network Controller",
+	"Display Controller",
+	"Multimedia Controller",
+	"Memory Controller",
+	"Bridge Device",
+	"Simple Communication Controller",
+	"Base System Peripheral",
+	"Input Device Controller",
+	"Docking Station", 
+	"Processor",
+	"Serial Bus Controller",
+	"Wireless Controller",
+	"Intelligent Controller",
+	"Satellite Communication Controller",
+	"Encryption Controller",
+	"Signal Processing Controller",
+	"Processing Accelerator",
+	"Non Essential Instrumentation"
 };
 
 const char *GetVendorName(uint16_t VendorID) {
-	switch (VendorID){
+	switch (VendorID) {
 		case 0x8086:
 			return "Intel Corp";
 		case 0x1022:
@@ -205,7 +205,7 @@ const char* GetProgIFName(uint8_t ClassCode, uint8_t SubclassCode, uint8_t ProgI
 	return "Unknown";
 }
 
-
+#include "../ahci/ahci.h"
 void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 	uint64_t offset = function << 12;
 
@@ -217,13 +217,12 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 	if (pciDeviceHeader->DeviceID == 0) return;
 	if (pciDeviceHeader->DeviceID == 0xFFFF) return;
 
-	MKMI_Printf(" - PCI Device:\r\n"
+	MKMI_Printf("PCI Device:\r\n"
 		    "   |- Vendor: %s (%x)\r\n"
 		    "   |- Device: %s (%x)\r\n"
 		    "   |- Class: %s\r\n"
 		    "   |- Subclass: %s (%x)\r\n"
-		    "   \\- Prog IF: %s (%x)\r\n"
-		    "\r\n",
+		    "   \\- Prog IF: %s (%x)\r\n",
 		    GetVendorName(pciDeviceHeader->VendorID),
 		    pciDeviceHeader->VendorID,
 		    GetDeviceName(pciDeviceHeader->VendorID, pciDeviceHeader->DeviceID),
@@ -233,6 +232,54 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 		    pciDeviceHeader->Subclass,
 		    GetProgIFName(pciDeviceHeader->Class, pciDeviceHeader->Subclass, pciDeviceHeader->ProgIF),
 		    pciDeviceHeader->ProgIF);
+
+	if(pciDeviceHeader->VendorID == 0 &&
+	   pciDeviceHeader->DeviceID == 0 &&
+	   pciDeviceHeader->Class    == 0 &&
+	   pciDeviceHeader->Subclass == 0 &&
+	   pciDeviceHeader->ProgIF   == 0) {
+		/* This is a test code to test out different devices 
+		   It is not for production. It is meant for alpha testing only */
+	} else if(pciDeviceHeader->VendorID == 0x8086 &&
+	          pciDeviceHeader->DeviceID == 0x2922 &&
+	          pciDeviceHeader->Class    == 0x0001 &&
+        	  pciDeviceHeader->Subclass == 0x0006 &&
+	          pciDeviceHeader->ProgIF   == 0x0001) {
+		AHCIDriver *ahciDriver = new AHCIDriver(pciDeviceHeader);
+	} else if(pciDeviceHeader->VendorID == 0x10EC &&
+	          pciDeviceHeader->DeviceID == 0x8139 &&
+	          pciDeviceHeader->Class    == 0x0002 &&
+	          pciDeviceHeader->Subclass == 0x0000 &&
+	          pciDeviceHeader->ProgIF   == 0x0000) {
+		
+		MKMI_Printf("Starting RTL 8139 driver.\r\n");
+
+		PCIHeader0 *header = (PCIHeader0*)pciDeviceHeader;
+		MKMI_Printf("Header:\r\n"
+				" - BAR0: 0x%x\r\n"
+				" - BAR1: 0x%x\r\n"
+				" - BAR2: 0x%x\r\n"
+				" - BAR3: 0x%x\r\n"
+				" - BAR4: 0x%x\r\n"
+				" - BAR5: 0x%x\r\n",
+				header->BAR0,
+				header->BAR1,
+				header->BAR2,
+				header->BAR3,
+				header->BAR4,
+				header->BAR5);
+
+		pciDeviceHeader->Command |= 0b100;
+
+		Syscall(SYSCALL_MEMORY_INOUT, header->BAR0 + 0x52, true, 0x00, NULL, 8, 0);
+		Syscall(SYSCALL_MEMORY_INOUT, header->BAR0 + 0x37, true, 0x10, NULL, 8, 0);
+
+		uint8_t in = 0;
+
+		do {
+			Syscall(SYSCALL_MEMORY_INOUT, header->BAR0 + 0x37, false, NULL, &in, 8, 0);
+		} while((in & 0x10) != 0);
+	}
 }
 
 void EnumerateDevice(uint64_t busAddress, uint64_t device){
