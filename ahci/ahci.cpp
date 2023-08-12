@@ -170,6 +170,57 @@ bool Port::Read(uint64_t sector, uint32_t sectorCount, volatile void *buffer){
 	return true;
 }
 
+struct MBRPartition {
+	uint8_t Attributes;
+	uint32_t CHSAddressPartitionStart : 24;
+	uint8_t Type;
+	uint32_t CHSAddressPartitionLast : 24;
+	uint32_t LBAPartitionStart;
+	uint32_t NumberSectors;
+}__attribute__((packed));
+
+struct MBR {
+	uint8_t Bootstrap[440];
+	uint8_t UniqueDiskID[4];
+	uint16_t Reserved0;
+
+	MBRPartition FirstPartition;
+	MBRPartition SecondPartition;
+	MBRPartition ThirdPartition;
+	MBRPartition FourthPartition;
+
+	uint8_t Signature[2];
+}__attribute__((packed));
+
+struct GPT {
+	uint8_t Signature[8];
+	uint32_t Revision;
+	uint32_t HeaderSize;
+	uint32_t CRC32Checksum;
+	uint32_t Reserved0;
+	uint64_t ThisLBA;
+	uint64_t AlternateLBA;
+	uint64_t FirstUsable;
+	uint64_t LastUsable;
+	uint8_t GUID[16];
+	uint64_t PartitionEntryStartLBA;
+	uint32_t PartitionEntries;
+	uint32_t SizePartitonEntry;
+	uint32_t CRC32ChecksumPartitionEntries;
+}__attribute__((packed));
+
+struct GPTPartitionEntry {
+	uint8_t Type[16];
+	uint8_t GUID[16];
+
+	uint64_t StartingLBA;
+	uint64_t EndingLBA;
+
+	uint64_t Attributes;
+
+	uint8_t PartitionName[72];
+}__attribute__((packed));
+
 AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
 	PCIBaseAddress = pciBaseAddress;
 	MKMI_Printf("AHCI Driver instance initialized\r\n");
@@ -186,15 +237,28 @@ AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
 		port->Configure();
 
 		port->Buffer = (uint8_t*)PMAlloc(4096);
-		Memset((void*)port->Buffer, 0, 0x1000);
 
 		MKMI_Printf("Reading from port %d...\r\n", i);
-		port->Read(0, 4, port->Buffer);
-		for (int t = 0; t < 1024; t++){
-			MKMI_Printf("%x", port->Buffer[t]);
+
+		Memset((void*)port->Buffer, 0, 0x1000);
+
+		if(!port->Read(0, 4, port->Buffer)) break;
+
+		MBR *mbrPartitionTable = (MBR*)port->Buffer;
+
+		MKMI_Printf("Sizeof : %d -> %d\r\n", sizeof(MBRPartition), sizeof(MBR));
+
+		if(mbrPartitionTable->Signature[0] != 0x55 || mbrPartitionTable->Signature[1] != 0xAA) {
+			MKMI_Printf("Invalid partition table.\r\n");
 		}
 
-		MKMI_Printf("\r\n");
+		if (mbrPartitionTable->FirstPartition.Type == 0xEE) {
+			GPT *guidPartitionTable = (GPT*)((uintptr_t)port->Buffer + 512);
+
+			MKMI_Printf("We've got a GPT partition table (%s) with %d partitions.\r\n", guidPartitionTable->Signature, guidPartitionTable->PartitionEntries);
+		} else {
+			MKMI_Printf("We've got a MBR partition table\r\n");
+		}
 	}
 }
 

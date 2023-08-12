@@ -32,9 +32,11 @@ const char* DeviceClasses[] {
 const char *GetVendorName(uint16_t VendorID) {
 	switch (VendorID) {
 		case 0x8086:
-			return "Intel Corp";
+			return "Intel Corp.";
+		case 0x1B36:
+			return "Red Hat, Inc.";
 		case 0x1022:
-			return "AMD";
+			return "Advanced Micro Devices, Inc. [AMD]";
 		case 0x10DE:
 			return "NVIDIA Corporation";
 	}
@@ -206,6 +208,7 @@ const char* GetProgIFName(uint8_t ClassCode, uint8_t SubclassCode, uint8_t ProgI
 }
 
 #include "../ahci/ahci.h"
+#include "../virtio/virtio.h"
 void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 	uint64_t offset = function << 12;
 
@@ -246,39 +249,13 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
         	  pciDeviceHeader->Subclass == 0x0006 &&
 	          pciDeviceHeader->ProgIF   == 0x0001) {
 		AHCIDriver *ahciDriver = new AHCIDriver(pciDeviceHeader);
-	} else if(pciDeviceHeader->VendorID == 0x10EC &&
-	          pciDeviceHeader->DeviceID == 0x8139 &&
+	} else if(pciDeviceHeader->VendorID == 0x1AF4 &&
+	          pciDeviceHeader->DeviceID >= 0x1000 &&
+	          pciDeviceHeader->DeviceID <= 0x103F &&
 	          pciDeviceHeader->Class    == 0x0002 &&
 	          pciDeviceHeader->Subclass == 0x0000 &&
 	          pciDeviceHeader->ProgIF   == 0x0000) {
-		
-		MKMI_Printf("Starting RTL 8139 driver.\r\n");
-
-		PCIHeader0 *header = (PCIHeader0*)pciDeviceHeader;
-		MKMI_Printf("Header:\r\n"
-				" - BAR0: 0x%x\r\n"
-				" - BAR1: 0x%x\r\n"
-				" - BAR2: 0x%x\r\n"
-				" - BAR3: 0x%x\r\n"
-				" - BAR4: 0x%x\r\n"
-				" - BAR5: 0x%x\r\n",
-				header->BAR0,
-				header->BAR1,
-				header->BAR2,
-				header->BAR3,
-				header->BAR4,
-				header->BAR5);
-
-		pciDeviceHeader->Command |= 0b100;
-
-		Syscall(SYSCALL_MEMORY_INOUT, header->BAR0 + 0x52, true, 0x00, NULL, 8, 0);
-		Syscall(SYSCALL_MEMORY_INOUT, header->BAR0 + 0x37, true, 0x10, NULL, 8, 0);
-
-		uint8_t in = 0;
-
-		do {
-			Syscall(SYSCALL_MEMORY_INOUT, header->BAR0 + 0x37, false, NULL, &in, 8, 0);
-		} while((in & 0x10) != 0);
+		VirtIODriver *virtIODriver = new VirtIODriver(pciDeviceHeader);
 	}
 }
 

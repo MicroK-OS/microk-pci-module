@@ -149,7 +149,7 @@ class Port {
 
 class AHCIDriver{
 	public:
-		AHCIDriver(PCIDeviceHeader* pciBaseAddress);
+		AHCIDriver(PCIDeviceHeader *pciBaseAddress);
 		~AHCIDriver();
 
 		PCIDeviceHeader *PCIBaseAddress;
