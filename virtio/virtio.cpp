@@ -41,6 +41,7 @@ VirtIODriver::VirtIODriver(PCIDeviceHeader *pciBaseAddress) {
 	OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
 
 	if(Type != VirtIODeviceType::NETWORK_CARD && Type != VirtIODeviceType::BLOCK_DEVICE) {
+		MKMI_Printf("Unknown VirtIO device type\r\n");
 		status |= VIRTIO_DEVICE_STATUS_FAILED;
 		OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
 
@@ -84,6 +85,19 @@ size_t VirtIODriver::NetworkCardInitialize(uint8_t status) {
 	/* Setup queue */
 	for(int i = 0; i < 16; i++) InitQueue(i);
 
+	uint32_t lowerHalf = InPort(IOBASE + VIRTIO_REGISTER_MAC_1, 32);
+	uint16_t higherHalf = InPort(IOBASE + VIRTIO_REGISTER_MAC_5, 16);
+	uint64_t macAddress = ((uint64_t)higherHalf << 32) | lowerHalf;
+	uint16_t netStatus = InPort(IOBASE + VIRTIO_REGISTER_NET_STATUS, 16);
+	MKMI_Printf("Network card info:\r\n"
+		    "MAC Address: %x:%x:%x:%x:%x:%x\r\n"
+		    "Status: %x\r\n",
+		    (macAddress >> 40) & 0xFF, (macAddress >> 32) & 0xFF,
+		    (macAddress >> 24) & 0xFF, (macAddress >> 16) & 0xFF,
+		    (macAddress >> 8) & 0xFF, macAddress & 0xFF,
+		    netStatus);
+
+
 	status |= VIRTIO_DEVICE_STATUS_DRIVER_OK;
 	return status;
 }
@@ -91,9 +105,7 @@ size_t VirtIODriver::NetworkCardInitialize(uint8_t status) {
 size_t VirtIODriver::BlockDeviceInitialize(uint8_t status) {
 	uint32_t features = GetFeatures();
 
-	features = DisableFeature(features, VIRTIO_BLOCK_FLAGS_RO);
-	features = DisableFeature(features, VIRTIO_BLOCK_FLAGS_BLOCK_SIZE);
-	features = DisableFeature(features, VIRTIO_BLOCK_FLAGS_TOPOLOGY);
+//	features = DisableFeature(features, VIRTIO_BLOCK_FLAGS_RO);
 	
 	SetFeatures(features);
 
@@ -109,11 +121,25 @@ size_t VirtIODriver::BlockDeviceInitialize(uint8_t status) {
 	/* Setup queue */
 	for(int i = 0; i < 16; i++) InitQueue(i);
 
-	uint64_t sectors = 0;
-	sectors |= InPort(IOBASE + 0x14, 32);
-	sectors |= InPort(IOBASE + 0x18, 32) << 32;
+	uint64_t sectors = InPort(IOBASE + VIRTIO_REGISTER_TOTAL_SECTOR, 64);
+	uint32_t maxSegmentSize = InPort(IOBASE + VIRTIO_REGISTER_MAX_SEG_SIZE, 32);
+	uint32_t maxSegmentCount = InPort(IOBASE + VIRTIO_REGISTER_MAX_SEC_COUNT, 32);
+	uint16_t cylinderCount = InPort(IOBASE + VIRTIO_REGISTER_CYLINDER_COUNT, 16);
+	uint8_t headCount = InPort(IOBASE + VIRTIO_REGISTER_HEAD_COUNT, 8);
+	uint8_t sectorCount = InPort(IOBASE + VIRTIO_REGISTER_SECTOR_COUNT, 8);
+	uint32_t blockLength = InPort(IOBASE + VIRTIO_REGISTER_BLOCK_LENGTH, 32);
 
-	MKMI_Printf("Block device with %d sectors. Size: %dMB\r\n", sectors, sectors / 2048);
+	MKMI_Printf("Block device info:\r\n"
+		    "Total sector count: %d\r\n"
+		    "Maximum segment size: %d\r\n"
+		    "Maximum segment count: %d\r\n"
+		    "Cylinder count: %d\r\n"
+		    "Head count: %d\r\n"
+		    "Sector count: %d\r\n"
+		    "Block length: %d\r\n",
+		    sectors, maxSegmentSize,
+		    maxSegmentCount, cylinderCount,
+		    headCount, sectorCount, blockLength);
 
 	status |= VIRTIO_DEVICE_STATUS_DRIVER_OK;
 	return status;
