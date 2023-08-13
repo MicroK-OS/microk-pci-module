@@ -59,6 +59,7 @@ void Port::Configure(){
 	StopCMD();
 
 	void *newBase = PMAlloc(4096);
+	VMMap(newBase, newBase, 4096, 0);
 
 	HBAPortPtr->CommandListBase = (uint32_t)(uint64_t)newBase;
 	HBAPortPtr->CommandListBaseUpper = (uint32_t)((uint64_t)newBase >> 32);
@@ -66,6 +67,7 @@ void Port::Configure(){
 	Memset(newBase, 0, 1024);
 
 	void *fisBase = PMAlloc(4096);
+	VMMap(fisBase, fisBase, 4096, 0);
 
 	HBAPortPtr->FISBaseAddress = (uint32_t)(uint64_t)fisBase;
 	HBAPortPtr->FISBaseAddressUpper = (uint32_t)((uint64_t)fisBase >> 32);
@@ -78,6 +80,7 @@ void Port::Configure(){
 		commandHeader[i].PRDTLength = 8;
 
 		void *commandTableAddress = PMAlloc(4096);
+		VMMap(commandTableAddress, commandTableAddress, 4096, 0);
 
 		uint64_t address = (uint64_t)commandTableAddress + (i << 8);
 
@@ -237,6 +240,7 @@ AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
 		port->Configure();
 
 		port->Buffer = (uint8_t*)PMAlloc(4096);
+		VMMap(port->Buffer, port->Buffer, 4096, 0);
 
 		MKMI_Printf("Reading from port %d...\r\n", i);
 
@@ -248,15 +252,17 @@ AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
 
 		if(mbrPartitionTable->Signature[0] != 0x55 || mbrPartitionTable->Signature[1] != 0xAA) {
 			MKMI_Printf("Invalid partition table.\r\n");
-		}
-
-		if (mbrPartitionTable->FirstPartition.Type == 0xEE) {
-			GPT *guidPartitionTable = (GPT*)((uintptr_t)port->Buffer + 512);
-
-			MKMI_Printf("We've got a GPT partition table (%s) with %d partitions.\r\n", guidPartitionTable->Signature, guidPartitionTable->PartitionEntries);
 		} else {
-			MKMI_Printf("We've got a MBR partition table\r\n");
+			if (mbrPartitionTable->FirstPartition.Type == 0xEE) {
+				GPT *guidPartitionTable = (GPT*)((uintptr_t)port->Buffer + 512);
+
+				MKMI_Printf("We've got a GPT partition table (%s) with %d partitions.\r\n", guidPartitionTable->Signature, guidPartitionTable->PartitionEntries);
+			} else {
+				MKMI_Printf("We've got a MBR partition table\r\n");
+			}
 		}
+
+		VMFree(port->Buffer, 0x1000);
 	}
 }
 

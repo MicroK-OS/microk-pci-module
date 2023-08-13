@@ -220,21 +220,12 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 	if (pciDeviceHeader->DeviceID == 0) return;
 	if (pciDeviceHeader->DeviceID == 0xFFFF) return;
 
-	MKMI_Printf("PCI Device:\r\n"
-		    "   |- Vendor: %s (%x)\r\n"
-		    "   |- Device: %s (%x)\r\n"
-		    "   |- Class: %s\r\n"
-		    "   |- Subclass: %s (%x)\r\n"
-		    "   \\- Prog IF: %s (%x)\r\n",
+	MKMI_Printf("PCI %s: %s (%x) %s (%x)\r\n",
+		    DeviceClasses[pciDeviceHeader->Class],
 		    GetVendorName(pciDeviceHeader->VendorID),
 		    pciDeviceHeader->VendorID,
 		    GetDeviceName(pciDeviceHeader->VendorID, pciDeviceHeader->DeviceID),
-		    pciDeviceHeader->DeviceID,
-		    DeviceClasses[pciDeviceHeader->Class],
-		    GetSubclassName(pciDeviceHeader->Class, pciDeviceHeader->Subclass),
-		    pciDeviceHeader->Subclass,
-		    GetProgIFName(pciDeviceHeader->Class, pciDeviceHeader->Subclass, pciDeviceHeader->ProgIF),
-		    pciDeviceHeader->ProgIF);
+		    pciDeviceHeader->DeviceID);
 
 	if(pciDeviceHeader->VendorID == 0 &&
 	   pciDeviceHeader->DeviceID == 0 &&
@@ -251,10 +242,7 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 		AHCIDriver *ahciDriver = new AHCIDriver(pciDeviceHeader);
 	} else if(pciDeviceHeader->VendorID == 0x1AF4 &&
 	          pciDeviceHeader->DeviceID >= 0x1000 &&
-	          pciDeviceHeader->DeviceID <= 0x103F &&
-	          pciDeviceHeader->Class    == 0x0002 &&
-	          pciDeviceHeader->Subclass == 0x0000 &&
-	          pciDeviceHeader->ProgIF   == 0x0000) {
+	          pciDeviceHeader->DeviceID <= 0x103F) {
 		VirtIODriver *virtIODriver = new VirtIODriver(pciDeviceHeader);
 	}
 }
