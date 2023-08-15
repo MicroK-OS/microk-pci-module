@@ -143,7 +143,7 @@ bool Port::Read(uint64_t sector, uint32_t sectorCount, volatile void *buffer){
 	commandFIS->LBA2 = (uint8_t)(sectorLow >> 16);
 	commandFIS->LBA3 = (uint8_t)sectorHigh;
 	commandFIS->LBA4 = (uint8_t)(sectorHigh >> 8);
-	commandFIS->LBA4 = (uint8_t)(sectorHigh >> 16);
+	commandFIS->LBA5 = (uint8_t)(sectorHigh >> 16);
 
 	commandFIS->DeviceRegister = 1 << 6; /* LBA mode */
 
@@ -221,7 +221,7 @@ struct GPTPartitionEntry {
 
 	uint64_t Attributes;
 
-	uint8_t PartitionName[72];
+	uint8_t PartitionName[1];
 }__attribute__((packed));
 
 AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
@@ -257,6 +257,12 @@ AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
 				GPT *guidPartitionTable = (GPT*)((uintptr_t)port->Buffer + 512);
 
 				MKMI_Printf("We've got a GPT partition table (%s) with %d partitions.\r\n", guidPartitionTable->Signature, guidPartitionTable->PartitionEntries);
+
+				for (uintptr_t position = 0; position < guidPartitionTable->PartitionEntries * guidPartitionTable->SizePartitonEntry; position += guidPartitionTable->SizePartitonEntry) {
+					GPTPartitionEntry *entry = (GPTPartitionEntry*)((uintptr_t)port->Buffer + guidPartitionTable->PartitionEntryStartLBA * 512 + position);
+					if(entry->StartingLBA == 0 && entry->EndingLBA == 0) break;
+					MKMI_Printf("Entry from %d to %d\r\n", entry->StartingLBA, entry->EndingLBA);
+				}
 			} else {
 				MKMI_Printf("We've got a MBR partition table\r\n");
 			}

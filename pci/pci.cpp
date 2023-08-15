@@ -234,9 +234,7 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 	   pciDeviceHeader->ProgIF   == 0) {
 		/* This is a test code to test out different devices 
 		   It is not for production. It is meant for alpha testing only */
-	} else if(pciDeviceHeader->VendorID == 0x8086 &&
-	          pciDeviceHeader->DeviceID == 0x2922 &&
-	          pciDeviceHeader->Class    == 0x0001 &&
+	} else if(pciDeviceHeader->Class    == 0x0001 &&
         	  pciDeviceHeader->Subclass == 0x0006 &&
 	          pciDeviceHeader->ProgIF   == 0x0001) {
 		AHCIDriver *ahciDriver = new AHCIDriver(pciDeviceHeader);

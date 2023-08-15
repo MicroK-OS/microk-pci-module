@@ -83,7 +83,7 @@ size_t VirtIODriver::NetworkCardInitialize(uint8_t status) {
 	}
 
 	/* Setup queue */
-	for(int i = 0; i < 16; i++) InitQueue(i);
+	for(int i = 0; i < 16; i++) if(InitQueue(i)) MKMI_Printf("Queue %d for device initialized.\r\n", i);
 
 	uint32_t lowerHalf = InPort(IOBASE + VIRTIO_REGISTER_MAC_1, 32);
 	uint16_t higherHalf = InPort(IOBASE + VIRTIO_REGISTER_MAC_5, 16);
@@ -119,7 +119,7 @@ size_t VirtIODriver::BlockDeviceInitialize(uint8_t status) {
 	}
 
 	/* Setup queue */
-	for(int i = 0; i < 16; i++) InitQueue(i);
+	for(int i = 0; i < 16; i++) if(InitQueue(i)) MKMI_Printf("Queue %d for device initialized.\r\n", i);
 
 	uint64_t sectors = InPort(IOBASE + VIRTIO_REGISTER_TOTAL_SECTOR, 64);
 	uint32_t maxSegmentSize = InPort(IOBASE + VIRTIO_REGISTER_MAX_SEG_SIZE, 32);
@@ -130,16 +130,18 @@ size_t VirtIODriver::BlockDeviceInitialize(uint8_t status) {
 	uint32_t blockLength = InPort(IOBASE + VIRTIO_REGISTER_BLOCK_LENGTH, 32);
 
 	MKMI_Printf("Block device info:\r\n"
-		    "Total sector count: %d\r\n"
-		    "Maximum segment size: %d\r\n"
+		    "Total sector count:    %d\r\n"
+		    "Maximum segment size:  %d bytes\r\n"
 		    "Maximum segment count: %d\r\n"
-		    "Cylinder count: %d\r\n"
-		    "Head count: %d\r\n"
-		    "Sector count: %d\r\n"
-		    "Block length: %d\r\n",
+		    "Cylinder count:        %d\r\n"
+		    "Head count:            %d\r\n"
+		    "Sector count:          %d\r\n"
+		    "Block length:          %d bytes\r\n"
+		    "Total size:            %d bytes\r\n",
 		    sectors, maxSegmentSize,
 		    maxSegmentCount, cylinderCount,
-		    headCount, sectorCount, blockLength);
+		    headCount, sectorCount, blockLength,
+		    blockLength * sectors);
 
 	status |= VIRTIO_DEVICE_STATUS_DRIVER_OK;
 	return status;
