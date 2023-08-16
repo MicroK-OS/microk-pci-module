@@ -34,8 +34,7 @@ VirtIODriver::VirtIODriver(PCIDeviceHeader *pciBaseAddress) {
 
 	MKMI_Printf("VirtIO device type: %s\r\n", GetTypeString(Type));
 
-	/* Aligning IOBASE to avoid trouble */
-	IOBASE = PCIBaseAddress->BAR0 - (PCIBaseAddress->BAR0 % 0x10);
+	IOBASE = (PCIBaseAddress->BAR0 & 0xFFFFFFFC);
 	uint8_t status = VIRTIO_DEVICE_STATUS_ACKNOWLEDGE;
 
 	OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
@@ -65,7 +64,7 @@ VirtIODriver::VirtIODriver(PCIDeviceHeader *pciBaseAddress) {
 	status |= result;
 	OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
 
-	MKMI_Printf("Driver initialized.\r\n");
+	MKMI_Printf("VirtIO driver initialized.\r\n");
 }
 
 size_t VirtIODriver::NetworkCardInitialize(uint8_t status) {

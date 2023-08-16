@@ -225,10 +225,10 @@ struct GPTPartitionEntry {
 }__attribute__((packed));
 
 AHCIDriver::AHCIDriver(PCIDeviceHeader* pciBaseAddress){
-	PCIBaseAddress = pciBaseAddress;
+	PCIBaseAddress = (PCIHeader0*)pciBaseAddress;
 	MKMI_Printf("AHCI Driver instance initialized\r\n");
 
-	ABAR = (HBAMemory*)(uint64_t)((PCIHeader0*)PCIBaseAddress)->BAR5;
+	ABAR = (HBAMemory*)(uint64_t)(PCIBaseAddress->BAR5 & 0xFFFFFFF0);
 
 	VMMap(ABAR, ABAR, 4096, 0);
 

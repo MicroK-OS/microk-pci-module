@@ -152,7 +152,7 @@ class AHCIDriver{
 		AHCIDriver(PCIDeviceHeader *pciBaseAddress);
 		~AHCIDriver();
 
-		PCIDeviceHeader *PCIBaseAddress;
+		PCIHeader0 *PCIBaseAddress;
 		volatile HBAMemory *ABAR;
 		void ProbePorts();
 		Port *Ports[32];

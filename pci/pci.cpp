@@ -6,7 +6,24 @@
 #include <mkmi_memory.h>
 #include <mkmi_syscall.h>
 
-const char* DeviceClasses[] {
+/* BAR test code 
+	if((PCIBaseAddress->BAR0 & 0b1) == 0x0) {
+		MKMI_Printf("Memory BAR\r\n");
+		if(((PCIBaseAddress->BAR0 & 0b110) >> 1) == 0x2) {
+			MKMI_Printf("64 bits\r\n");
+
+			IOBASE = ((uint64_t)(PCIBaseAddress->BAR0 & 0xFFFFFFF0) + ((uint64_t)(PCIBaseAddress->BAR1 & 0xFFFFFFFF) << 32));
+		} else {
+			IOBASE = (uintptr_t)PCIBaseAddress->BAR0 & 0xFFFFFFF0;
+		}
+	} else if ((PCIBaseAddress->BAR0 & 0b1) == 0x1) {
+		MKMI_Printf("IO space BAR\r\n");
+		
+		IOBASE = (uintptr_t)PCIBaseAddress->BAR0 & 0xFFFFFFFC;
+	}
+*/
+
+const char *DeviceClasses[] {
 	"Unclassified",
 	"Mass Storage Controller",
 	"Network Controller",
@@ -208,7 +225,10 @@ const char* GetProgIFName(uint8_t ClassCode, uint8_t SubclassCode, uint8_t ProgI
 }
 
 #include "../ahci/ahci.h"
+#include "../xhci/xhci.h"
+#include "../nvme/nvme.h"
 #include "../virtio/virtio.h"
+#include "../intel-hda/intel-hda.h"
 void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 	uint64_t offset = function << 12;
 
@@ -227,21 +247,19 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 		    GetDeviceName(pciDeviceHeader->VendorID, pciDeviceHeader->DeviceID),
 		    pciDeviceHeader->DeviceID);
 
-	if(pciDeviceHeader->VendorID == 0 &&
-	   pciDeviceHeader->DeviceID == 0 &&
-	   pciDeviceHeader->Class    == 0 &&
-	   pciDeviceHeader->Subclass == 0 &&
-	   pciDeviceHeader->ProgIF   == 0) {
-		/* This is a test code to test out different devices 
-		   It is not for production. It is meant for alpha testing only */
-	} else if(pciDeviceHeader->Class    == 0x0001 &&
-        	  pciDeviceHeader->Subclass == 0x0006 &&
-	          pciDeviceHeader->ProgIF   == 0x0001) {
-		AHCIDriver *ahciDriver = new AHCIDriver(pciDeviceHeader);
-	} else if(pciDeviceHeader->VendorID == 0x1AF4 &&
+	if(pciDeviceHeader->VendorID == 0x1AF4 &&
 	          pciDeviceHeader->DeviceID >= 0x1000 &&
 	          pciDeviceHeader->DeviceID <= 0x103F) {
 		VirtIODriver *virtIODriver = new VirtIODriver(pciDeviceHeader);
+	} else {
+		if(pciDeviceHeader->Class == 0x01 && pciDeviceHeader->Subclass == 0x06 && pciDeviceHeader->ProgIF == 0x01)
+			AHCIDriver *ahciDriver = new AHCIDriver(pciDeviceHeader);
+		else if(pciDeviceHeader->Class == 0x0C && pciDeviceHeader->Subclass == 0x03 && pciDeviceHeader->ProgIF == 0x30)
+			XHCIDriver *xhciDriver = new XHCIDriver(pciDeviceHeader);
+		else if(pciDeviceHeader->Class == 0x01 && pciDeviceHeader->Subclass == 0x08 && pciDeviceHeader->ProgIF == 0x02)
+			NVMEDriver *nvmeDriver = new NVMEDriver(pciDeviceHeader);
+		else if(pciDeviceHeader->Class == 0x04 && pciDeviceHeader->Subclass == 0x03)
+			IntelHDADriver *intelHDADriver = new IntelHDADriver(pciDeviceHeader);
 	}
 }
 
