@@ -9,12 +9,41 @@ enum VirtIODeviceType {
 	BLOCK_DEVICE = 2,
 	CONSOLE = 3,
 	ENTROPY_SOURCE = 4,
-	MEMORY_BALLOONING = 5,
+	BALLOONING = 5,
 	IO_MEMORY = 6,
 	RPMSG = 7,
 	SCSI_HOST = 8,
 	_9P_TRANSPORT = 9,
 	MAC802_11_WLAN = 10,
+	RPROC_SERIAL = 11,
+	CAIF	 = 12,
+	MEMORY_BALLOO = 13,
+	GPU	 = 16,
+	CLOCK	 = 17,
+	INPUT	 = 18,
+	VSOCK	 = 19,
+	CRYPTO = 20,
+	SIGNAL_DIST = 21,
+	PSTORE = 22,
+	IOMMU	 = 23,
+	MEM	 = 24,
+	SOUND	 = 25,
+	FS	 = 26,
+	PMEM	 = 27,
+	RPMB	 = 28,
+	MAC80211_HWSI = 29,
+	VIDEO_ENCODER = 30,
+	VIDEO_DECODER = 31,
+	SCMI	 = 32,
+	NITRO_SEC_MOD = 33,
+	I2C_ADAPTER = 34,
+	WATCHDOG = 35,
+	CAN	 = 36,
+	DMABUF = 37,
+	PARAM_SERV = 38,
+	AUDIO_POLICY = 39,
+	BT	 = 40,
+	GPIO	 = 41,
 };
 
 #define VIRTIO_REGISTER_DEVICE_FEATURES 0x00
@@ -116,6 +145,7 @@ class VirtIODriver {
 
 		size_t NetworkCardInitialize(uint8_t status);
 		size_t BlockDeviceInitialize(uint8_t status);
+		size_t GPUInitialize(uint8_t status);
 
 		PCIHeader0 *PCIBaseAddress;
 		uintptr_t IOBASE;

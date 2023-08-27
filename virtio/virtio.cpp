@@ -4,24 +4,6 @@
 		
 static size_t QueueMappingArea = 0x1000000000;
 
-const char *TypeStrings[] = {
-	"Unknown",
-	"Network card",
-	"Block device",
-	"Console",
-	"Entropy source",
-	"Memory ballooning",
-	"I/O memory",
-	"RPMSG",
-	"SCSI host",
-	"9P transport",
-	"MAC802.11 WLAN"
-};
-
-static inline const char *GetTypeString(VirtIODeviceType type) {
-	return TypeStrings[type];	
-}
-
 static inline uint32_t DisableFeature(uint32_t features, uint32_t feature) {
 	features &= ~(1 << feature);
 	return features;
@@ -32,20 +14,12 @@ VirtIODriver::VirtIODriver(PCIDeviceHeader *pciBaseAddress) {
 
 	Type = GetDeviceType();
 
-	MKMI_Printf("VirtIO device type: %s\r\n", GetTypeString(Type));
+	MKMI_Printf("VirtIO device type: 0x%x\r\n", Type);
 
 	IOBASE = (PCIBaseAddress->BAR0 & 0xFFFFFFFC);
+
 	uint8_t status = VIRTIO_DEVICE_STATUS_ACKNOWLEDGE;
-
 	OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
-
-	if(Type != VirtIODeviceType::NETWORK_CARD && Type != VirtIODeviceType::BLOCK_DEVICE) {
-		MKMI_Printf("Unknown VirtIO device type\r\n");
-		status |= VIRTIO_DEVICE_STATUS_FAILED;
-		OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
-
-		return;
-	}
 
 	status |= VIRTIO_DEVICE_STATUS_DRIVER;
 	OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
@@ -58,6 +32,13 @@ VirtIODriver::VirtIODriver(PCIDeviceHeader *pciBaseAddress) {
 			break;
 		case VirtIODeviceType::BLOCK_DEVICE: 
 			result = BlockDeviceInitialize(status);
+			break;
+		case VirtIODeviceType::GPU:
+			result = GPUInitialize(status);
+			break;
+		default:
+			MKMI_Printf("Unknown VirtIO device type\r\n");
+			result = VIRTIO_DEVICE_STATUS_FAILED;
 			break;
 	}
 	
@@ -145,6 +126,30 @@ size_t VirtIODriver::BlockDeviceInitialize(uint8_t status) {
 	status |= VIRTIO_DEVICE_STATUS_DRIVER_OK;
 	return status;
 }
+		
+size_t VirtIODriver::GPUInitialize(uint8_t status) {
+	uint32_t features = GetFeatures();
+
+//	features = DisableFeature(features, VIRTIO_BLOCK_FLAGS_RO);
+	
+	SetFeatures(features);
+
+	status |= VIRTIO_DEVICE_STATUS_FEATURES_OK;
+	OutPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, status, 8);
+
+	status = InPort(IOBASE + VIRTIO_REGISTER_DEVICE_STATUS, 8);
+	if ((status & VIRTIO_DEVICE_STATUS_FEATURES_OK) == 0) {
+		MKMI_Printf("Feature set not accepted\r\n");
+        	return VIRTIO_DEVICE_STATUS_FAILED;
+	}
+
+	/* Setup queue */
+	for(int i = 0; i < 16; i++) if(InitQueue(i)) MKMI_Printf("Queue %d for device initialized.\r\n", i);
+
+	status |= VIRTIO_DEVICE_STATUS_DRIVER_OK;
+	return status;
+
+}
 
 VirtIODriver::~VirtIODriver() {
 
@@ -193,10 +198,11 @@ bool VirtIODriver::InitQueue(size_t index) {
 }
 
 VirtIODeviceType VirtIODriver::GetDeviceType() {
-	if(PCIBaseAddress->SubsystemID > 10)
-		return VirtIODeviceType::UNKNOWN;
-
-	return static_cast<VirtIODeviceType>(PCIBaseAddress->SubsystemID);
+	if(PCIBaseAddress->Header.DeviceID >= 0x1040 && PCIBaseAddress->Header.DeviceID <= 0x10ef) {
+		return static_cast<VirtIODeviceType>(PCIBaseAddress->Header.DeviceID - 0x1040);
+	} else {
+		return static_cast<VirtIODeviceType>(PCIBaseAddress->SubsystemID);
+	}
 }
 
 uint32_t VirtIODriver::GetFeatures() {

@@ -33,6 +33,19 @@ struct XHCIPortRegisters {
 	uint32_t Reserved0;
 }__attribute__((packed));
 
+struct XHCIInterruptRegisterSet {
+	uint32_t InterrupterManagment;
+	uint32_t InterrupterModeration;
+	uint64_t EventRingSegmentTableSize;
+	uint64_t EventRingSegmentTableBaseAddress;
+	uint64_t EventRingDequeuePointer;
+}__attribute__((packed));
+
+struct XHCIRuntimeRegisters {
+	uint8_t MicroframeIndex[32];
+	XHCIInterruptRegisterSet InterruptRegisterSets[1];
+}__attribute__((packed));
+
 class XHCIDriver {
 	public:
 		XHCIDriver(PCIDeviceHeader *pciBaseAddress);
@@ -44,4 +57,5 @@ class XHCIDriver {
 		volatile XHCICapabilityRegisters *CapabilityRegisters;
 		volatile XHCIOperationalRegisters *OperationalRegisters;
 		volatile XHCIPortRegisters *PortRegisters;
+		volatile XHCIRuntimeRegisters *RuntimeRegisters;
 };

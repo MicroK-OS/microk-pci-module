@@ -2,6 +2,9 @@
 
 #include <mkmi.h>
 
+#define PORT_STATUS_CONNECT (1 << 0)
+#define PORT_STATUS_ENABLE  (1 << 1)
+
 XHCIDriver::XHCIDriver(PCIDeviceHeader *pciBaseAddress) {
 	PCIBaseAddress = (PCIHeader0*)pciBaseAddress;
 
@@ -27,6 +30,19 @@ XHCIDriver::XHCIDriver(PCIDeviceHeader *pciBaseAddress) {
 	OperationalRegisters->USBCommand = 0x2;
 	while(OperationalRegisters->USBStatus & (1 << 12))
 		/* Reset in progress */;
+
+	// Check if HCIOwned bit is set in USBLEGSUP register.
+	if (CapabilityRegisters->CapabilityParameters1 & (1 << 24)) {
+		// HCIOwned bit is set, indicating that the controller is already owned by your microkernel (the host OS).
+		MKMI_Printf("Well shit.\r\n");
+		// Proceed with additional initialization steps as needed.
+	} else {
+		// The HCIOwned bit is not set, indicating that the controller is not yet owned by your microkernel.
+
+		// You can assume ownership by setting the HCIOwned bit.
+		CapabilityRegisters->CapabilityParameters1 |= (1 << 24);
+
+	}
 
 	uint8_t maxDeviceSlots = (CapabilityRegisters->StructuralParameters1 & 0x000000FF);
 	uint16_t maxInterrupters = (CapabilityRegisters->StructuralParameters1 & 0x00FFFF00) >> 8;
@@ -87,11 +103,20 @@ XHCIDriver::XHCIDriver(PCIDeviceHeader *pciBaseAddress) {
 
 	for (uint8_t port = 0; port < maxPorts; ++port) {
 		volatile XHCIPortRegisters *portRegisters = (volatile XHCIPortRegisters*)((uintptr_t)PortRegisters + port * sizeof(XHCIPortRegisters));
+		uint32_t portStatus = portRegisters->PortStatusControl;
+//		uint32_t portStatus = *(uint32_t*)(IOBASE + 0x400 + port * 0x10);
 		MKMI_Printf(" Port %d:                       0x%x\r\n"
 			    "  Port status control:           0x%x\r\n",
 			    port,
 			    (uintptr_t)portRegisters,
-			    portRegisters->PortStatusControl);
+			    portStatus);
+
+		if (portStatus & (PORT_STATUS_CONNECT | PORT_STATUS_ENABLE)) {
+			((volatile XHCIPortRegisters*)(PortRegisters + port * sizeof(XHCIPortRegisters)))->PortStatusControl |= PORT_STATUS_ENABLE;
+			MKMI_Printf("Port enabled.\r\n");
+		} else {
+			MKMI_Printf("Port does not exist?\r\n");
+		}
 	}
 
 	MKMI_Printf("Runtime registers:             0x%x\r\n",

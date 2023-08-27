@@ -249,7 +249,7 @@ void EnumerateFunction(uint64_t deviceAddress, uint64_t function){
 
 	if(pciDeviceHeader->VendorID == 0x1AF4 &&
 	          pciDeviceHeader->DeviceID >= 0x1000 &&
-	          pciDeviceHeader->DeviceID <= 0x103F) {
+	          pciDeviceHeader->DeviceID <= 0x10FF) {
 		VirtIODriver *virtIODriver = new VirtIODriver(pciDeviceHeader);
 	} else {
 		if(pciDeviceHeader->Class == 0x01 && pciDeviceHeader->Subclass == 0x06 && pciDeviceHeader->ProgIF == 0x01)
